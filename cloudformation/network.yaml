@@ -1,0 +1,560 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AWS Network Resources'
+Parameters:
+  Env:
+    Type: 'String'
+    Description: 'Environment Name'
+    # AllowedValues:
+    #   - 'stg'
+    Default: 'stg'
+  ResourcePrefix:
+    Type: 'String'
+    Description: 'Resources Prefix'
+    Default: 'catch'
+  VpcCIDR:
+    Type: 'String'
+    Description: 'VPC CIDR Block'
+    AllowedPattern: '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$'
+    Default: 0.0.64.0/18
+  PublicSubnetExternalGateway1CIDR:
+    Type: 'String'
+    Description: 'VPC CIDR Block'
+    AllowedPattern: '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$'
+    Default: 0.0.64.0/24
+  PublicSubnetExternalGateway2CIDR:
+    Type: 'String'
+    Description: 'VPC CIDR Block'
+    AllowedPattern: '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$'
+    Default: 0.0.65.0/24
+  PrivateSubnetInternalGateway1CIDR:
+    Type: 'String'
+    Description: 'VPC CIDR Block'
+    AllowedPattern: '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$'
+    Default: 0.0.67.0/24
+  PrivateSubnetInternalGateway2CIDR:
+    Type: 'String'
+    Description: 'VPC CIDR Block'
+    AllowedPattern: '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$'
+    Default: 0.0.68.0/24
+  PrivateSubnetApp1CIDR:
+    Type: 'String'
+    Description: 'VPC CIDR Block'
+    AllowedPattern: '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$'
+    Default: 0.0.70.0/21
+  PrivateSubnetApp2CIDR:
+    Type: 'String'
+    Description: 'VPC CIDR Block'
+    AllowedPattern: '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$'
+    Default: 0.0.78.0/21
+  PrivateSubnetDB1CIDR:
+    Type: 'String'
+    Description: 'VPC CIDR Block'
+    AllowedPattern: '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$'
+    Default: 0.0.94.0/24
+  PrivateSubnetDB2CIDR:
+    Type: 'String'
+    Description: 'VPC CIDR Block'
+    AllowedPattern: '^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$'
+    Default: 0.0.95.0/24
+  HostedZoneName:
+    Type: 'String'
+    Description: 'Hosted Domain Name'
+    Default: 'stg-catch.jp'
+  
+
+Mappings:
+  AvailabilityZones:
+    Number1:
+      Name: 'ap-northeast-1a'
+    Number2:
+      Name: 'ap-northeast-1c'
+
+Resources:
+  # S3 Bucket
+  S3Bucket:
+    Type: 'AWS::S3::Bucket'
+    DeletionPolicy: 'Retain'
+    UpdateReplacePolicy: 'Retain'
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: 'AES256'
+      BucketName: !Sub '${Env}-${ResourcePrefix}-network-logs'
+      VersioningConfiguration:
+        Status: 'Enabled'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+  S3BucketPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: !Ref S3Bucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: 'Deny'
+            Principal: '*'
+            Action:
+              - 's3:DeleteBucket'
+              - 's3:DeleteObject*'
+            Resource:
+              - !Sub '${S3Bucket.Arn}'
+              - !Sub '${S3Bucket.Arn}/*'
+          - Effect: 'Allow'
+            Principal: '*'
+            Action:
+              - 's3:GetBucketAcl'
+              - 's3:GetObject'
+              - 's3:ListBucket'
+              - 's3:PutObject'
+            Resource: 
+              - !Sub '${S3Bucket.Arn}'
+              - !Sub '${S3Bucket.Arn}/*'
+
+  # VPC
+  VPC:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: !Ref VpcCIDR
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      InstanceTenancy: 'default'
+      Tags:
+        - Key: 'Name'
+          Value: !Sub '${Env}-${ResourcePrefix}-vpc'
+
+  # Internet Gateway
+  InternetGateway:
+    Type: 'AWS::EC2::InternetGateway'
+    Properties:
+      Tags:
+        - Key: 'Name'
+          Value: !Sub '${Env}-${ResourcePrefix}-internet-gateway'
+  InternetGatewayAttachment:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+
+  # Public NAT Gateway & EIP
+  NATGatewayEIP1:
+    Type: 'AWS::EC2::EIP'
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      Domain: 'vpc'
+  NATGatewayEIP2:
+    Type: 'AWS::EC2::EIP'
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      Domain: 'vpc'
+  NATGatewayPublic1:
+    Type: 'AWS::EC2::NatGateway'
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      AllocationId: !GetAtt NATGatewayEIP1.AllocationId
+      ConnectivityType: 'public'
+      SubnetId: !Ref SubnetPublicExternalGateway1
+      Tags:
+        - Key: 'Name'
+          Value: !Sub
+            - '${Env}-${ResourcePrefix}-natgateway-public-${AZAlias}'
+            - AZAlias: !FindInMap [AvailabilityZones, Number1, Name]
+  NATGatewayPublic2:
+    Type: 'AWS::EC2::NatGateway'
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      AllocationId: !GetAtt NATGatewayEIP2.AllocationId
+      ConnectivityType: 'public'
+      SubnetId: !Ref SubnetPublicExternalGateway2
+      Tags:
+        - Key: 'Name'
+          Value: !Sub
+            - '${Env}-${ResourcePrefix}-natgateway-public-${AZAlias}'
+            - AZAlias: !FindInMap [AvailabilityZones, Number2, Name]
+
+  # TODO ECS Fargate リソース定義
+  # Public Subnet for External Gateway
+  SubnetPublicExternalGateway1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !FindInMap [AvailabilityZones, Number1, Name]
+      CidrBlock: !Ref PublicSubnetExternalGateway1CIDR
+      VpcId: !Ref VPC
+      Tags:
+        - Key: 'Name'
+          Value: !Sub
+            - '${Env}-${ResourcePrefix}-subnet-public-external-gateway-${AZAlias}'
+            - AZAlias: !FindInMap [AvailabilityZones, Number1, Name]
+  SubnetPublicExternalGateway2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !FindInMap [AvailabilityZones, Number2, Name]
+      CidrBlock: !Ref PublicSubnetExternalGateway2CIDR
+      VpcId: !Ref EC2VPC
+      Tags:
+        - Key: 'Name'
+          Value: !Sub
+            - '${Env}-${ResourcePrefix}-subnet-public-external-gateway-${AZAlias}'
+            - AZAlias: !FindInMap [AvailabilityZones, Number2, Name]
+
+  # Private Subnet for Internal Gateway
+  SubnetPrivateInternalGateway1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !FindInMap [AvailabilityZones, Number1, Name]
+      CidrBlock: !Ref PrivateSubnetInternalGateway1CIDR
+      VpcId: !Ref EC2VPC
+      Tags:
+        - Key: 'Name'
+          Value: !Sub
+            - '${Env}-${ResourcePrefix}-subnet-private-internal-gateway-${AZAlias}'
+            - AZAlias: !FindInMap [AvailabilityZones, Number1, Name]
+  SubnetPrivateInternalGateway2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !FindInMap [AvailabilityZones, Number2, Name]
+      CidrBlock: !Ref PrivateSubnetInternalGateway2CIDR
+      VpcId: !Ref EC2VPC
+      Tags:
+        - Key: 'Name'
+          Value: !Sub
+            - '${Env}-${ResourcePrefix}-subnet-private-internal-gateway-${AZAlias}'
+            - AZAlias: !FindInMap [AvailabilityZones, Number2, Name]
+
+  # Private Subnet for App
+  SubnetPrivateApp1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !FindInMap [AvailabilityZones, Number1, Name]
+      CidrBlock: !Ref PrivateSubnetApp1CIDR
+      VpcId: !Ref EC2VPC
+      Tags:
+        - Key: 'Name'
+          Value: !Sub
+            - '${Env}-${ResourcePrefix}-subnet-private-app-${AZAlias}'
+            - AZAlias: !FindInMap [AvailabilityZones, Number1, Name]
+  SubnetPrivateApp2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !FindInMap [AvailabilityZones, Number2, Name]
+      CidrBlock: !Ref PrivateSubnetApp2CIDR
+      VpcId: !Ref EC2VPC
+      Tags:
+        - Key: 'Name'
+          Value: !Sub
+            - '${Env}-${ResourcePrefix}-subnet-private-app-${AZAlias}'
+            - AZAlias: !FindInMap [AvailabilityZones, Number2, Name]
+
+  # Private Subnet for DB
+  SubnetPrivateDB1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !FindInMap [AvailabilityZones, Number1, Name]
+      CidrBlock: !Ref PrivateSubnetDB1CIDR
+      VpcId: !Ref EC2VPC
+      Tags:
+        - Key: 'Name'
+          Value: !Sub
+            - '${Env}-${ResourcePrefix}-subnet-private-db-${AZAlias}'
+            - AZAlias: !FindInMap [AvailabilityZones, Number1, Name]
+  SubnetPrivateDB2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !FindInMap [AvailabilityZones, Number2, Name]
+      CidrBlock: !Ref PrivateSubnetDB2CIDR
+      VpcId: !Ref EC2VPC
+      Tags:
+        - Key: 'Name'
+          Value: !Sub
+            - '${Env}-${ResourcePrefix}-subnet-private-db-${AZAlias}'
+            - AZAlias: !FindInMap [AvailabilityZones, Number2, Name]
+
+  # Route Table for Public External Gateway
+  RouteTablePublicExternalGateway:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub '${Env}-${ResourcePrefix}-routetable-public-external-gateway'
+  RoutePublicExternalGatewayToInternetGateway:
+    Type: 'AWS::EC2::Route'
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref RouteTablePublicExternalGateway
+      DestinationCidrBlock: '0.0.0.0/0'
+      GatewayId: !Ref InternetGateway
+  RouteTableAssociationPublicExternalGateway1:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref SubnetPublicExternalGateway1
+      RouteTableId: !Ref RouteTablePublicExternalGateway
+  RouteTableAssociationPublicExternalGateway2:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref SubnetPublicExternalGateway2
+      RouteTableId: !Ref RouteTablePublicExternalGateway
+
+  # Route Table for Private Internal Gateway
+  RouteTablePrivateInternalGateway:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub '${Env}-${ResourcePrefix}-routetable-private-internal-gateway'
+  EC2SubnetRouteTableAssociationPrivateInternalGateway1:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref SubnetPrivateInternalGateway1
+      RouteTableId: !Ref RouteTablePrivateInternalGateway
+  EC2SubnetRouteTableAssociationPrivateInternalGateway2:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref SubnetPrivateInternalGateway2
+      RouteTableId: !Ref RouteTablePrivateInternalGateway
+
+  # Route Table for Private App
+  RouteTablePrivateApp1:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub
+            - '${Env}-${ResourcePrefix}-routetable-private-app-${AZAlias}'
+            - AZAlias: !FindInMap [AvailabilityZones, Number1, Name]
+  RouteTablePrivateApp2:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub
+            - '${Env}-${ResourcePrefix}-routetable-private-app-${AZAlias}'
+            - AZAlias: !FindInMap [AvailabilityZones, Number2, Name]
+
+  RoutePrivateApp1ToPublicNATGateway1:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      DestinationCidrBlock: '0.0.0.0/0'
+      NatGatewayId: !Ref NATGatewayPublic1
+      RouteTableId: !Ref RouteTablePrivateApp1
+  RoutePrivateApp2ToPublicNATGateway2:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      DestinationCidrBlock: '0.0.0.0/0'
+      NatGatewayId: !Ref NATGatewayPublic2
+      RouteTableId: !Ref RouteTablePrivateApp2
+
+  RouteTableAssociationPrivateApp1:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref SubnetPrivateApp1
+      RouteTableId: !Ref RouteTablePrivateApp1
+  RouteTableAssociationPrivateApp2:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref SubnetPrivateApp2
+      RouteTableId: !Ref RouteTablePrivateApp2
+
+  # Route Table for Private DB
+  RouteTablePrivateDB:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub '${Env}-${ResourcePrefix}-routetable-private-db'
+  RouteTableAssociationPrivateDB1:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref SubnetPrivateDB1
+      RouteTableId: !Ref RouteTablePrivateDB
+  RouteTableAssociationPrivateDB2:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref SubnetPrivateDB2
+      RouteTableId: !Ref RouteTablePrivateDB
+
+  # Security Group for Public API Gateway
+  SecurityGroupPublicAPIGateway:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupName: !Sub '${Env}-${ResourcePrefix}-security-group-public-api-gateway'
+      GroupDescription: 'Allows for Public API Gateway'
+      SecurityGroupIngress:
+        - Description: 'Allow All Requests to Any'
+          IpProtocol: '-1'
+          CidrIp: '0.0.0.0/0'
+      SecurityGroupEgress:
+        - Description: 'Allow All Requests to Any'
+          IpProtocol: '-1'
+          CidrIp: '0.0.0.0/0'
+      VpcId: !Ref VPC
+
+  # Security Group for Private Internal Gateway
+  SecurityGroupPrivateInternalGateway:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupName: !Sub '${Env}-${ResourcePrefix}-security-group-private-internal-gateway'
+      GroupDescription: 'Allows for Private Internal Gateway'
+      SecurityGroupIngress:
+        - Description: 'Allow https Requests from Public API Gateway'
+          IpProtocol: 'tcp'
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !Ref SecurityGroupPublicAPIGateway
+        - Description: 'Allow https Requests from Internal Network'
+          IpProtocol: 'tcp'
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Ref VpcCIDR
+      SecurityGroupEgress:
+        - Description: 'Allow All Requests to Any'
+          IpProtocol: '-1'
+          CidrIp: '0.0.0.0/0'
+      VpcId: !Ref VPC
+
+  # Security Group for Private App
+  SecurityGroupPrivateApp:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupName: !Sub '${Env}-${ResourcePrefix}-security-group-private-app'
+      GroupDescription: 'Allows for Private App'
+      SecurityGroupIngress:
+        - Description: 'Allow http Requests from Private Internal Gateway'
+          IpProtocol: 'tcp'
+          FromPort: 8080
+          ToPort: 8080
+          SourceSecurityGroupId: !Ref SecurityGroupPrivateInternalGateway
+      SecurityGroupEgress:
+        - Description: 'Allow All Requests to Any'
+          IpProtocol: '-1'
+          CidrIp: '0.0.0.0/0'
+      VpcId: !Ref VPC
+
+  # Security Group for Private DB
+  SecurityGroupPrivateDB:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupName: !Sub '${Env}-${ResourcePrefix}-security-group-private-db'
+      GroupDescription: 'Allows for Private DB'
+      SecurityGroupIngress:
+        - Description: 'Allow tcp Requests from Private App'
+          IpProtocol: 'tcp'
+          FromPort: 3306
+          ToPort: 3306
+          SourceSecurityGroupId: !Ref SecurityGroupPrivateApp
+      SecurityGroupEgress:
+        - Description: 'Allow All Requests to Any'
+          IpProtocol: '-1'
+          CidrIp: '0.0.0.0/0'
+      VpcId: !Ref VPC
+
+  # VPC Endpoint
+  VpcEndpointPrivateAppSubnetToS3:
+    Type: 'AWS::EC2::VPCEndpoint'
+    Properties:
+      RouteTableIds:
+        - !Ref RouteTablePrivateApp1
+        - !Ref RouteTablePrivateApp2
+      ServiceName: !Sub 'com.amazonaws.${AWS::Region}.s3'
+      VpcEndpointType: 'Gateway'
+      VpcId: !Ref VPC
+  
+  # ACM create 
+  # ACM:
+  #   Type: "AWS::CertificateManager::Certificate"
+  #   Properties: 
+  #     DomainName: !Ref HostedZoneName
+  #     ValidationMethod: DNS
+
+  # Route53 HostedZone
+  # Route53HostedZone:
+  #   Type: 'AWS::Route53::HostedZone'
+  #   DeletionPolicy: 'Retain'
+  #   UpdateReplacePolicy: 'Retain'
+  #   Properties:
+  #     Name: !Ref HostedZoneName
+
+Outputs:
+  VpcID:
+    Description: 'VPC ID.'
+    Value: !Ref VPC
+    Export:
+      Name: !Sub '${AWS::StackName}::vpc-id'
+  SubnetPublicExternalGateway1ID:
+    Description: 'VPC Subnet ID Public External Gateway 1.'
+    Value: !Ref SubnetPublicExternalGateway1
+    Export:
+      Name: !Sub '${AWS::StackName}::subnet-public-external-gateway-1-id'
+  SubnetPublicExternalGateway2ID:
+    Description: 'VPC Subnet ID Public External Gateway 2.'
+    Value: !Ref SubnetPublicExternalGateway2
+    Export:
+      Name: !Sub '${AWS::StackName}::subnet-public-external-gateway-2-id'
+  SubnetPrivateInternalGateway1ID:
+    Description: 'VPC Subnet ID Private Internal Gateway 1.'
+    Value: !Ref SubnetPrivateInternalGateway1
+    Export:
+      Name: !Sub '${AWS::StackName}::subnet-private-internal-gateway-1-id'
+  SubnetPrivateInternalGateway2ID:
+    Description: 'VPC Subnet ID Private Internal Gateway 2.'
+    Value: !Ref SubnetPrivateInternalGateway2
+    Export:
+      Name: !Sub '${AWS::StackName}::subnet-private-internal-gateway-2-id'
+  SubnetPrivateApp1ID:
+    Description: 'VPC Subnet ID Private App 1.'
+    Value: !Ref SubnetPrivateApp1
+    Export:
+      Name: !Sub '${AWS::StackName}::subnet-private-app-1-id'
+  SubnetPrivateApp2ID:
+    Description: 'VPC Subnet ID Private App 2.'
+    Value: !Ref SubnetPrivateApp2
+    Export:
+      Name: !Sub '${AWS::StackName}::subnet-private-app-2-id'
+  SubnetPrivateDB1ID:
+    Description: 'VPC Subnet ID Private DB 1.'
+    Value: !Ref SubnetPrivateDB1
+    Export:
+      Name: !Sub '${AWS::StackName}::subnet-private-db-1-id'
+  SubnetPrivateDB2ID:
+    Description: 'VPC Subnet ID Private DB 2.'
+    Value: !Ref SubnetPrivateDB2
+    Export:
+      Name: !Sub '${AWS::StackName}::subnet-private-db-2-id'
+  SecurityGroupAPIGatewayID:
+    Description: 'VPC Security Group ID API Gateway.'
+    Value: !GetAtt SecurityGroupPublicAPIGateway.GroupId
+    Export:
+      Name: !Sub '${AWS::StackName}::security-group-api-gateway-id'
+  SecurityGroupInternalGatewayID:
+    Description: 'VPC Security Group ID Internal Gateway.'
+    Value: !GetAtt SecurityGroupPrivateInternalGateway.GroupId
+    Export:
+      Name: !Sub '${AWS::StackName}::security-group-internal-gateway-id'
+  SecurityGroupAppID:
+    Description: 'VPC Security Group ID App.'
+    Value: !GetAtt SecurityGroupPrivateApp.GroupId
+    Export:
+      Name: !Sub '${AWS::StackName}::security-group-app-id'
+  SecurityGroupDBID:
+    Description: 'VPC Security Group ID DB.'
+    Value: !GetAtt SecurityGroupPrivateDB.GroupId
+    Export:
+      Name: !Sub '${AWS::StackName}::security-group-db-id'
+  # HostedZoneID:
+  #   Description: 'Route53 Hosted Zone ID.'
+  #   Value: !Ref Route53HostedZone
+  #   Export:
+  #     Name: !Sub '${AWS::StackName}::hosted-zone-id'
+  # HostedZoneName:
+  #   Description: 'Route53 Hosted Zone Name.'
+  #   Value: !Ref HostedZoneName
+  #   Export:
+  #     Name: !Sub '${AWS::StackName}::hosted-zone-name'
