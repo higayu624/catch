@@ -1,20 +1,23 @@
 package main
 
 import (
-	"catch/controller"
 	"database/sql"
 	"net/http"
 	"time"
+
+	"catch/controller"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
-var productName = "catch"
-var version = "v1"
-var APIRoot = version + "/" + productName + "/"
+var (
+	productName = "catch"
+	version     = "v1"
+	APIRoot     = version + "/" + productName + "/"
+)
 
-func endpoint(path string) string {
+func endpointGroups(path string) string {
 	return APIRoot + path
 }
 
@@ -57,7 +60,22 @@ func initRouter(dbHandler *sql.DB) *gin.Engine {
 		MaxAge:           24 * time.Hour,
 	}))
 
-	router.POST(endpoint("customer"), controller.PostCustomer(dbHandler))
+	// v1/catch/customer
+	customerGroup := router.Group(endpointGroups("customer"))
+	{
+		route := ""
+		customerGroup.POST(route, controller.PostCustomer(dbHandler))
+		customerGroup.DELETE(route, controller.DeleteCustomer(dbHandler))
+		// route = "/force"
+		// customerGroup.DELETE(route, controller.DeleteCustomerForce(dbHandler))
+	}
+
+	// v1/catch/category
+	categoryGroup := router.Group(endpointGroups("category"))
+	{
+		route := ""
+		categoryGroup.POST(route, controller.SeedCategoryHandler(dbHandler))
+	}
 
 	return router
 }

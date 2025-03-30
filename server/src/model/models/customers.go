@@ -559,7 +559,7 @@ func (customerL) LoadStores(ctx context.Context, e boil.ContextExecutor, singula
 
 	for _, foreign := range resultSlice {
 		for _, local := range slice {
-			if local.ID == foreign.CustomerID {
+			if queries.Equal(local.ID, foreign.CustomerID) {
 				local.R.Stores = append(local.R.Stores, foreign)
 				if foreign.R == nil {
 					foreign.R = &storeR{}
@@ -581,7 +581,7 @@ func (o *Customer) AddStores(ctx context.Context, exec boil.ContextExecutor, ins
 	var err error
 	for _, rel := range related {
 		if insert {
-			rel.CustomerID = o.ID
+			queries.Assign(&rel.CustomerID, o.ID)
 			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
 				return errors.Wrap(err, "failed to insert into foreign table")
 			}
@@ -602,7 +602,7 @@ func (o *Customer) AddStores(ctx context.Context, exec boil.ContextExecutor, ins
 				return errors.Wrap(err, "failed to update foreign table")
 			}
 
-			rel.CustomerID = o.ID
+			queries.Assign(&rel.CustomerID, o.ID)
 		}
 	}
 
@@ -623,6 +623,80 @@ func (o *Customer) AddStores(ctx context.Context, exec boil.ContextExecutor, ins
 			rel.R.Customer = o
 		}
 	}
+	return nil
+}
+
+// SetStores removes all previously related items of the
+// customer replacing them completely with the passed
+// in related items, optionally inserting them as new records.
+// Sets o.R.Customer's Stores accordingly.
+// Replaces o.R.Stores with related.
+// Sets related.R.Customer's Stores accordingly.
+func (o *Customer) SetStores(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*Store) error {
+	query := "update \"stores\" set \"customer_id\" = null where \"customer_id\" = $1"
+	values := []interface{}{o.ID}
+	if boil.IsDebug(ctx) {
+		writer := boil.DebugWriterFrom(ctx)
+		fmt.Fprintln(writer, query)
+		fmt.Fprintln(writer, values)
+	}
+	_, err := exec.ExecContext(ctx, query, values...)
+	if err != nil {
+		return errors.Wrap(err, "failed to remove relationships before set")
+	}
+
+	if o.R != nil {
+		for _, rel := range o.R.Stores {
+			queries.SetScanner(&rel.CustomerID, nil)
+			if rel.R == nil {
+				continue
+			}
+
+			rel.R.Customer = nil
+		}
+		o.R.Stores = nil
+	}
+
+	return o.AddStores(ctx, exec, insert, related...)
+}
+
+// RemoveStores relationships from objects passed in.
+// Removes related items from R.Stores (uses pointer comparison, removal does not keep order)
+// Sets related.R.Customer.
+func (o *Customer) RemoveStores(ctx context.Context, exec boil.ContextExecutor, related ...*Store) error {
+	if len(related) == 0 {
+		return nil
+	}
+
+	var err error
+	for _, rel := range related {
+		queries.SetScanner(&rel.CustomerID, nil)
+		if rel.R != nil {
+			rel.R.Customer = nil
+		}
+		if _, err = rel.Update(ctx, exec, boil.Whitelist("customer_id")); err != nil {
+			return err
+		}
+	}
+	if o.R == nil {
+		return nil
+	}
+
+	for _, rel := range related {
+		for i, ri := range o.R.Stores {
+			if rel != ri {
+				continue
+			}
+
+			ln := len(o.R.Stores)
+			if ln > 1 && i < ln-1 {
+				o.R.Stores[i] = o.R.Stores[ln-1]
+			}
+			o.R.Stores = o.R.Stores[:ln-1]
+			break
+		}
+	}
+
 	return nil
 }
 

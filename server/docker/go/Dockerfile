@@ -17,12 +17,12 @@ RUN go get -u github.com/gin-contrib/sessions
 RUN go get -u github.com/cosmtrek/air@v1.49.0
 RUN go build -o /go/bin/air github.com/cosmtrek/air
 RUN go get -u github.com/jinzhu/copier
-RUN go install github.com/volatiletech/sqlboiler/v4@latest
+RUN go install github.com/volatiletech/sqlboiler/v4/queries/qm
 RUN go install github.com/volatiletech/sqlboiler/v4/drivers/sqlboiler-psql@latest
 RUN go get github.com/volatiletech/strmangle
 RUN go get github.com/golang/mock/mockgen@latest
 RUN go get github.com/golang/mock/gomock
-RUN go get github.com/go-faker/faker/v4
+RUN go get github.com/go-faker/faker/v4@latest
 # RUN cd usecase/port && mockgen -source=user.go -destination=./../interactor/mock/user.go -package=interactor
 
 # air -c [tomlファイル名] // 設定ファイルを指定してair実行(WORKDIRに.air.tomlを配置しておくこと)

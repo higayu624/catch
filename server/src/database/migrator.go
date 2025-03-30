@@ -1,10 +1,9 @@
 package database
 
 import (
-	"catch/controller"
-	"catch/database/table"
-	"database/sql"
 	"log"
+
+	"catch/database/table"
 
 	"github.com/bxcodec/faker"
 	"gorm.io/gorm"
@@ -18,19 +17,13 @@ func Migrate(db *gorm.DB) {
 		&table.Clip{},
 		&table.User{},
 		&table.Location{},
-		&table.Visit{},
 		&table.Category{},
-		&table.Categorization{},
 	)
-}
-
-func SeedCategorys(dbHandler *sql.DB) {
-	controller.SeedCategoryHandler(dbHandler)
 }
 
 // Seed add datas to tables TODO seedの実装
 func Seed(db *gorm.DB) {
-	var restaurantCategories = []string{
+	restaurantCategories := []string{
 		"和食", "寿司", "焼肉", "ラーメン", "居酒屋",
 		"フレンチ", "イタリアン", "カフェ", "中華", "ベーカリー",
 		"ファストフード", "ベジタリアン", "韓国料理", "タイ料理", "メキシカン",

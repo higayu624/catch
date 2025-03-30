@@ -1,23 +1,22 @@
 package model
 
 import (
-	"catch/model/models"
 	"context"
 	"database/sql"
+
+	"catch/model/models"
 
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 )
 
 type Category struct {
-	ID             uint   `json:"id"`
-	Name           string `json:"name"`
-	Categorization Categorization
+	Name string `boil:"name" json:"name"`
 }
 
 type Categorys []Category
 
-func SeedCategorys(ctx context.Context, tx *sql.Tx, restaurantCategories *[]null.String) (*[]null.String, error) {
+func SeedCategories(ctx context.Context, tx *sql.Tx, restaurantCategories *[]null.String) ([]null.String, error) {
 	// Insert customer table
 	for _, value := range *restaurantCategories {
 		category := models.Category{
@@ -29,5 +28,5 @@ func SeedCategorys(ctx context.Context, tx *sql.Tx, restaurantCategories *[]null
 		}
 	}
 
-	return restaurantCategories, nil
+	return *restaurantCategories, nil
 }
