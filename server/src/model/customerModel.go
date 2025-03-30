@@ -1,34 +1,40 @@
 package model
 
 import (
-	"catch/model/models"
 	"context"
 	"database/sql"
+	"log"
+	"time"
 
+	"catch/model/models"
+
+	"github.com/ericlagergren/decimal"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
+	"github.com/volatiletech/sqlboiler/v4/queries/qm"
+	"github.com/volatiletech/sqlboiler/v4/types"
 	"gorm.io/gorm"
 )
 
 type Customer struct {
 	gorm.Model
 
-	Name              null.String `json:"name"`
-	Email             null.String `json:"email"`
-	Gender            null.String `json:"gender"`
-	Age               null.Int64  `json:"age"`
-	GoogleAccessToken null.String `json:"google_access_token"`
-	Store             Store
+	Name              string `boil:"name" json:"name"`
+	Email             string `boil:"email" json:"email"`
+	Gender            string `boil:"gender" json:"gender"`
+	Age               int64  `boil:"age" json:"age"`
+	GoogleAccessToken string `boil:"google_access_token" json:"google_access_token"`
+	Store             *Store `boil:"store" json:"store,omitempty"`
 }
 
-func CreateCustomerStoreCategorys(ctx context.Context, tx *sql.Tx, request *Customer) (*Customer, error) {
+func CreateCustomerStoreCategorization(ctx context.Context, tx *sql.Tx, request *Customer) (*Customer, error) {
 	// Insert customer table
 	customer := models.Customer{
-		Name:              request.Name,
-		Email:             request.Email,
-		Gender:            request.Gender,
-		Age:               request.Age,
-		GoogleAccessToken: request.GoogleAccessToken,
+		Name:              null.NewString(request.Name, true),
+		Email:             null.NewString(request.Email, true),
+		Gender:            null.NewString(request.Gender, true),
+		Age:               null.NewInt64(request.Age, true),
+		GoogleAccessToken: null.NewString(request.GoogleAccessToken, true),
 	}
 	err := customer.Insert(ctx, tx, boil.Infer())
 	if err != nil {
@@ -36,35 +42,84 @@ func CreateCustomerStoreCategorys(ctx context.Context, tx *sql.Tx, request *Cust
 	}
 
 	// Insert store table
+	latitudeDecimal := new(decimal.Big)
 	store := models.Store{
-		CustomerID:  customer.ID,
-		Name:        request.Store.Name,
-		Description: request.Store.Description,
-		Address:     request.Store.Address,
-		Latitude:    request.Store.Latitude,
-		Longitude:   request.Store.Longitude,
+		CustomerID:  null.Int64From(customer.ID),
+		Name:        null.NewString(request.Store.Name, true),
+		Description: null.NewString(request.Store.Description, true),
+		Address:     null.NewString(request.Store.Address, true),
+		Latitude:    types.NewNullDecimal(latitudeDecimal.SetFloat64(request.Store.Latitude)),
+		Longitude:   types.NewNullDecimal(latitudeDecimal.SetFloat64(request.Store.Longitude)),
 	}
 	err = store.Insert(ctx, tx, boil.Infer())
 	if err != nil {
 		return nil, err
 	}
 
-	// Insert categorys table
-	for _, categorization := range request.Store.Categorizations {
-		categorizations := models.Categorization{
-			StoreID:    null.Int64From(store.ID),
-			CategoryID: null.Int64From(int64(categorization.CategoryId)),
+	// Insert categorization table
+	for _, requestCategory := range *request.Store.Categories {
+		category, err := models.Categories(
+			Active,
+			qm.Where("name = ?", requestCategory.Name),
+		).One(ctx, tx)
+		if err != nil {
+			return nil, err
 		}
-		err = categorizations.Insert(ctx, tx, boil.Infer())
+		log.Print(category)
+		err = store.AddCategories(ctx, tx, false, category)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return request, nil
 }
 
-// func PhysicalDeleteCustomer(ctx context.Context, tx *sql.Tx, request *models.Customer) (*models.Customer, error) {
+func DeleteCustomerStoreCategorization(ctx context.Context, tx *sql.Tx, request *Customer, response *Customer) error {
+	// delete customer table
+	customer, err := models.Customers(
+		Active,
+		qm.Where("email = ?", request.Email),
+		qm.Load(models.CustomerRels.Stores, Active),
+	).One(ctx, tx)
+	if err != nil {
+		return err
+	}
+	now := time.Now()
+	customer.DeletedAt = null.TimeFrom(now)
+	_, err = customer.Update(ctx, tx, boil.Whitelist("deleted_at"))
+	if err != nil {
+		return err
+	}
 
-// }
+	// delete store table
+	store := customer.R.Stores[0]
+	if store != nil {
+		store.DeletedAt = null.TimeFrom(now)
+	} else {
+		makeResult(customer, response)
+		return nil
+	}
+	_, err = store.Update(ctx, tx, boil.Whitelist("deleted_at"))
+	if err != nil {
+		return err
+	}
 
-// func LogicalDeleteCustomer(ctx context.Context, tx *sql.Tx, request *models.Customer) (*models.Customer, error) {
+	// delete categorization table
+	categories := store.R.Categories
+	if categories != nil {
+		for _, category := range store.R.Categories {
+			err = store.RemoveCategories(ctx, tx, category)
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		makeResult(store, response.Store)
+	}
+	log.Print("categories", categories)
 
-// }
+	makeResult(customer, response)
+
+	return err
+}

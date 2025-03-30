@@ -14,12 +14,15 @@ import (
 func main() {
 	dbConfig := appconfig.DatabaseInfo()
 	gorm, err := appdb.DatabaseConnector(dbConfig)
+	if err != nil {
+		panic(err)
+	}
 	sqlBoiler, err := appdb.DatabaseConnectorSqlboiler(dbConfig)
+	if err != nil {
+		panic(err)
+	}
 	defer sqlBoiler.Close()
 	boil.DebugMode = true
-	if err != nil {
-		log.Print("接続失敗", err)
-	}
 	log.Printf("db connect successed!")
 
 	// migrate db
@@ -44,10 +47,6 @@ func main() {
 		log.Print("can't create sqlboiler models", err)
 	}
 	log.Print("create sqlboiler models")
-
-	// seed category
-	appdb.SeedCategorys(sqlBoiler)
-	log.Print("seed Categorys successed")
 
 	// seed db
 	// appdb.Seed(gorm)

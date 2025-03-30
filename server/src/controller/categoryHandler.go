@@ -1,10 +1,10 @@
 package controller
 
 import (
-	"catch/model"
 	"database/sql"
-	"log"
 	"net/http"
+
+	"catch/model"
 
 	"github.com/gin-gonic/gin"
 	"github.com/volatiletech/null/v8"
@@ -12,7 +12,7 @@ import (
 
 func SeedCategoryHandler(dbHandler *sql.DB) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		var restaurantCategories = []null.String{
+		restaurantCategories := []null.String{
 			null.NewString("和食", true),
 			null.NewString("寿司", true),
 			null.NewString("焼肉", true),
@@ -29,39 +29,26 @@ func SeedCategoryHandler(dbHandler *sql.DB) gin.HandlerFunc {
 			null.NewString("タイ料理", true),
 			null.NewString("メキシカン", true),
 		}
-		var seedResponse *[]null.String
 
 		// transaction
 		tx, err := dbHandler.BeginTx(ctx, nil)
 		if err != nil {
-			ctx.JSON(
-				http.StatusInternalServerError,
-				response("failed starting transaction", err, http.StatusInternalServerError),
-			)
+			handlerError(ctx, "failed starting transaction", err, http.StatusInternalServerError)
+			return
 		}
 		defer func() {
-			if p := recover(); p != nil { // panicに渡された値をrecover()でキャッチ
-				ctx.JSON(
-					http.StatusInternalServerError,
-					response("panic!!", p, http.StatusInternalServerError),
-				)
-			} else { // transactionの実行
-				err = tx.Commit()
-				if err != nil {
-					tx.Rollback()
-					ctx.JSON(
-						http.StatusInternalServerError,
-						response("failed execution of transaction", err, http.StatusInternalServerError),
-					)
-				}
-				log.Print("seed category Successed!", seedResponse)
-			}
+			rolleback(tx)
 		}()
 
 		// create customer
-		seedResponse, err = model.SeedCategorys(ctx, tx, &restaurantCategories)
+		result, err := model.SeedCategories(ctx, tx, &restaurantCategories)
 		if err != nil {
 			panic(err)
 		}
+
+		ctx.JSON(
+			http.StatusOK,
+			response("seed category", result, http.StatusOK),
+		)
 	}
 }
