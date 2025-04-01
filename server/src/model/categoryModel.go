@@ -11,7 +11,8 @@ import (
 )
 
 type Category struct {
-	Name string `boil:"name" json:"name"`
+	Name            string            `boil:"name" json:"name"`
+	Categorizations *[]Categorization `boil:"categorizations" json:"categorizations,omitempty"`
 }
 
 type Categorys []Category

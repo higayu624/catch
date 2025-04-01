@@ -116,23 +116,20 @@ var StoreWhere = struct {
 
 // StoreRels is where relationship names are stored.
 var StoreRels = struct {
-	Customer   string
-	Categories string
-	Clips      string
-	Users      string
+	Customer        string
+	Categorizations string
+	Clips           string
 }{
-	Customer:   "Customer",
-	Categories: "Categories",
-	Clips:      "Clips",
-	Users:      "Users",
+	Customer:        "Customer",
+	Categorizations: "Categorizations",
+	Clips:           "Clips",
 }
 
 // storeR is where relationships are stored.
 type storeR struct {
-	Customer   *Customer     `boil:"Customer" json:"Customer" toml:"Customer" yaml:"Customer"`
-	Categories CategorySlice `boil:"Categories" json:"Categories" toml:"Categories" yaml:"Categories"`
-	Clips      ClipSlice     `boil:"Clips" json:"Clips" toml:"Clips" yaml:"Clips"`
-	Users      UserSlice     `boil:"Users" json:"Users" toml:"Users" yaml:"Users"`
+	Customer        *Customer           `boil:"Customer" json:"Customer" toml:"Customer" yaml:"Customer"`
+	Categorizations CategorizationSlice `boil:"Categorizations" json:"Categorizations" toml:"Categorizations" yaml:"Categorizations"`
+	Clips           ClipSlice           `boil:"Clips" json:"Clips" toml:"Clips" yaml:"Clips"`
 }
 
 // NewStruct creates a new relationship struct
@@ -147,11 +144,11 @@ func (r *storeR) GetCustomer() *Customer {
 	return r.Customer
 }
 
-func (r *storeR) GetCategories() CategorySlice {
+func (r *storeR) GetCategorizations() CategorizationSlice {
 	if r == nil {
 		return nil
 	}
-	return r.Categories
+	return r.Categorizations
 }
 
 func (r *storeR) GetClips() ClipSlice {
@@ -159,13 +156,6 @@ func (r *storeR) GetClips() ClipSlice {
 		return nil
 	}
 	return r.Clips
-}
-
-func (r *storeR) GetUsers() UserSlice {
-	if r == nil {
-		return nil
-	}
-	return r.Users
 }
 
 // storeL is where Load methods for each relationship are stored.
@@ -495,19 +485,18 @@ func (o *Store) Customer(mods ...qm.QueryMod) customerQuery {
 	return Customers(queryMods...)
 }
 
-// Categories retrieves all the category's Categories with an executor.
-func (o *Store) Categories(mods ...qm.QueryMod) categoryQuery {
+// Categorizations retrieves all the categorization's Categorizations with an executor.
+func (o *Store) Categorizations(mods ...qm.QueryMod) categorizationQuery {
 	var queryMods []qm.QueryMod
 	if len(mods) != 0 {
 		queryMods = append(queryMods, mods...)
 	}
 
 	queryMods = append(queryMods,
-		qm.InnerJoin("\"categorizations\" on \"categories\".\"id\" = \"categorizations\".\"category_id\""),
 		qm.Where("\"categorizations\".\"store_id\"=?", o.ID),
 	)
 
-	return Categories(queryMods...)
+	return Categorizations(queryMods...)
 }
 
 // Clips retrieves all the clip's Clips with an executor.
@@ -522,21 +511,6 @@ func (o *Store) Clips(mods ...qm.QueryMod) clipQuery {
 	)
 
 	return Clips(queryMods...)
-}
-
-// Users retrieves all the user's Users with an executor.
-func (o *Store) Users(mods ...qm.QueryMod) userQuery {
-	var queryMods []qm.QueryMod
-	if len(mods) != 0 {
-		queryMods = append(queryMods, mods...)
-	}
-
-	queryMods = append(queryMods,
-		qm.InnerJoin("\"visits\" on \"users\".\"id\" = \"visits\".\"user_id\""),
-		qm.Where("\"visits\".\"store_id\"=?", o.ID),
-	)
-
-	return Users(queryMods...)
 }
 
 // LoadCustomer allows an eager lookup of values, cached into the
@@ -663,9 +637,9 @@ func (storeL) LoadCustomer(ctx context.Context, e boil.ContextExecutor, singular
 	return nil
 }
 
-// LoadCategories allows an eager lookup of values, cached into the
+// LoadCategorizations allows an eager lookup of values, cached into the
 // loaded structs of the objects. This is for a 1-M or N-M relationship.
-func (storeL) LoadCategories(ctx context.Context, e boil.ContextExecutor, singular bool, maybeStore interface{}, mods queries.Applicator) error {
+func (storeL) LoadCategorizations(ctx context.Context, e boil.ContextExecutor, singular bool, maybeStore interface{}, mods queries.Applicator) error {
 	var slice []*Store
 	var object *Store
 
@@ -718,10 +692,8 @@ func (storeL) LoadCategories(ctx context.Context, e boil.ContextExecutor, singul
 	}
 
 	query := NewQuery(
-		qm.Select("\"categories\".\"id\", \"categories\".\"created_at\", \"categories\".\"updated_at\", \"categories\".\"deleted_at\", \"categories\".\"name\", \"a\".\"store_id\""),
-		qm.From("\"categories\""),
-		qm.InnerJoin("\"categorizations\" as \"a\" on \"categories\".\"id\" = \"a\".\"category_id\""),
-		qm.WhereIn("\"a\".\"store_id\" in ?", argsSlice...),
+		qm.From(`categorizations`),
+		qm.WhereIn(`categorizations.store_id in ?`, argsSlice...),
 	)
 	if mods != nil {
 		mods.Apply(query)
@@ -729,36 +701,22 @@ func (storeL) LoadCategories(ctx context.Context, e boil.ContextExecutor, singul
 
 	results, err := query.QueryContext(ctx, e)
 	if err != nil {
-		return errors.Wrap(err, "failed to eager load categories")
+		return errors.Wrap(err, "failed to eager load categorizations")
 	}
 
-	var resultSlice []*Category
-
-	var localJoinCols []int64
-	for results.Next() {
-		one := new(Category)
-		var localJoinCol int64
-
-		err = results.Scan(&one.ID, &one.CreatedAt, &one.UpdatedAt, &one.DeletedAt, &one.Name, &localJoinCol)
-		if err != nil {
-			return errors.Wrap(err, "failed to scan eager loaded results for categories")
-		}
-		if err = results.Err(); err != nil {
-			return errors.Wrap(err, "failed to plebian-bind eager loaded slice categories")
-		}
-
-		resultSlice = append(resultSlice, one)
-		localJoinCols = append(localJoinCols, localJoinCol)
+	var resultSlice []*Categorization
+	if err = queries.Bind(results, &resultSlice); err != nil {
+		return errors.Wrap(err, "failed to bind eager loaded slice categorizations")
 	}
 
 	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results in eager load on categories")
+		return errors.Wrap(err, "failed to close results in eager load on categorizations")
 	}
 	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for categories")
+		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for categorizations")
 	}
 
-	if len(categoryAfterSelectHooks) != 0 {
+	if len(categorizationAfterSelectHooks) != 0 {
 		for _, obj := range resultSlice {
 			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
 				return err
@@ -766,25 +724,24 @@ func (storeL) LoadCategories(ctx context.Context, e boil.ContextExecutor, singul
 		}
 	}
 	if singular {
-		object.R.Categories = resultSlice
+		object.R.Categorizations = resultSlice
 		for _, foreign := range resultSlice {
 			if foreign.R == nil {
-				foreign.R = &categoryR{}
+				foreign.R = &categorizationR{}
 			}
-			foreign.R.Stores = append(foreign.R.Stores, object)
+			foreign.R.Store = object
 		}
 		return nil
 	}
 
-	for i, foreign := range resultSlice {
-		localJoinCol := localJoinCols[i]
+	for _, foreign := range resultSlice {
 		for _, local := range slice {
-			if local.ID == localJoinCol {
-				local.R.Categories = append(local.R.Categories, foreign)
+			if queries.Equal(local.ID, foreign.StoreID) {
+				local.R.Categorizations = append(local.R.Categorizations, foreign)
 				if foreign.R == nil {
-					foreign.R = &categoryR{}
+					foreign.R = &categorizationR{}
 				}
-				foreign.R.Stores = append(foreign.R.Stores, local)
+				foreign.R.Store = local
 				break
 			}
 		}
@@ -906,136 +863,6 @@ func (storeL) LoadClips(ctx context.Context, e boil.ContextExecutor, singular bo
 	return nil
 }
 
-// LoadUsers allows an eager lookup of values, cached into the
-// loaded structs of the objects. This is for a 1-M or N-M relationship.
-func (storeL) LoadUsers(ctx context.Context, e boil.ContextExecutor, singular bool, maybeStore interface{}, mods queries.Applicator) error {
-	var slice []*Store
-	var object *Store
-
-	if singular {
-		var ok bool
-		object, ok = maybeStore.(*Store)
-		if !ok {
-			object = new(Store)
-			ok = queries.SetFromEmbeddedStruct(&object, &maybeStore)
-			if !ok {
-				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", object, maybeStore))
-			}
-		}
-	} else {
-		s, ok := maybeStore.(*[]*Store)
-		if ok {
-			slice = *s
-		} else {
-			ok = queries.SetFromEmbeddedStruct(&slice, maybeStore)
-			if !ok {
-				return errors.New(fmt.Sprintf("failed to set %T from embedded struct %T", slice, maybeStore))
-			}
-		}
-	}
-
-	args := make(map[interface{}]struct{})
-	if singular {
-		if object.R == nil {
-			object.R = &storeR{}
-		}
-		args[object.ID] = struct{}{}
-	} else {
-		for _, obj := range slice {
-			if obj.R == nil {
-				obj.R = &storeR{}
-			}
-			args[obj.ID] = struct{}{}
-		}
-	}
-
-	if len(args) == 0 {
-		return nil
-	}
-
-	argsSlice := make([]interface{}, len(args))
-	i := 0
-	for arg := range args {
-		argsSlice[i] = arg
-		i++
-	}
-
-	query := NewQuery(
-		qm.Select("\"users\".\"id\", \"users\".\"created_at\", \"users\".\"updated_at\", \"users\".\"deleted_at\", \"users\".\"name\", \"users\".\"email\", \"users\".\"gender\", \"users\".\"age\", \"users\".\"google_access_token\", \"a\".\"store_id\""),
-		qm.From("\"users\""),
-		qm.InnerJoin("\"visits\" as \"a\" on \"users\".\"id\" = \"a\".\"user_id\""),
-		qm.WhereIn("\"a\".\"store_id\" in ?", argsSlice...),
-	)
-	if mods != nil {
-		mods.Apply(query)
-	}
-
-	results, err := query.QueryContext(ctx, e)
-	if err != nil {
-		return errors.Wrap(err, "failed to eager load users")
-	}
-
-	var resultSlice []*User
-
-	var localJoinCols []int64
-	for results.Next() {
-		one := new(User)
-		var localJoinCol int64
-
-		err = results.Scan(&one.ID, &one.CreatedAt, &one.UpdatedAt, &one.DeletedAt, &one.Name, &one.Email, &one.Gender, &one.Age, &one.GoogleAccessToken, &localJoinCol)
-		if err != nil {
-			return errors.Wrap(err, "failed to scan eager loaded results for users")
-		}
-		if err = results.Err(); err != nil {
-			return errors.Wrap(err, "failed to plebian-bind eager loaded slice users")
-		}
-
-		resultSlice = append(resultSlice, one)
-		localJoinCols = append(localJoinCols, localJoinCol)
-	}
-
-	if err = results.Close(); err != nil {
-		return errors.Wrap(err, "failed to close results in eager load on users")
-	}
-	if err = results.Err(); err != nil {
-		return errors.Wrap(err, "error occurred during iteration of eager loaded relations for users")
-	}
-
-	if len(userAfterSelectHooks) != 0 {
-		for _, obj := range resultSlice {
-			if err := obj.doAfterSelectHooks(ctx, e); err != nil {
-				return err
-			}
-		}
-	}
-	if singular {
-		object.R.Users = resultSlice
-		for _, foreign := range resultSlice {
-			if foreign.R == nil {
-				foreign.R = &userR{}
-			}
-			foreign.R.Stores = append(foreign.R.Stores, object)
-		}
-		return nil
-	}
-
-	for i, foreign := range resultSlice {
-		localJoinCol := localJoinCols[i]
-		for _, local := range slice {
-			if local.ID == localJoinCol {
-				local.R.Users = append(local.R.Users, foreign)
-				if foreign.R == nil {
-					foreign.R = &userR{}
-				}
-				foreign.R.Stores = append(foreign.R.Stores, local)
-				break
-			}
-		}
-	}
-
-	return nil
-}
-
 // SetCustomer of the store to the related item.
 // Sets o.R.Customer to related.
 // Adds o to related.R.Stores.
@@ -1116,62 +943,67 @@ func (o *Store) RemoveCustomer(ctx context.Context, exec boil.ContextExecutor, r
 	return nil
 }
 
-// AddCategories adds the given related objects to the existing relationships
+// AddCategorizations adds the given related objects to the existing relationships
 // of the store, optionally inserting them as new records.
-// Appends related to o.R.Categories.
-// Sets related.R.Stores appropriately.
-func (o *Store) AddCategories(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*Category) error {
+// Appends related to o.R.Categorizations.
+// Sets related.R.Store appropriately.
+func (o *Store) AddCategorizations(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*Categorization) error {
 	var err error
 	for _, rel := range related {
 		if insert {
+			queries.Assign(&rel.StoreID, o.ID)
 			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
 				return errors.Wrap(err, "failed to insert into foreign table")
 			}
+		} else {
+			updateQuery := fmt.Sprintf(
+				"UPDATE \"categorizations\" SET %s WHERE %s",
+				strmangle.SetParamNames("\"", "\"", 1, []string{"store_id"}),
+				strmangle.WhereClause("\"", "\"", 2, categorizationPrimaryKeyColumns),
+			)
+			values := []interface{}{o.ID, rel.ID}
+
+			if boil.IsDebug(ctx) {
+				writer := boil.DebugWriterFrom(ctx)
+				fmt.Fprintln(writer, updateQuery)
+				fmt.Fprintln(writer, values)
+			}
+			if _, err = exec.ExecContext(ctx, updateQuery, values...); err != nil {
+				return errors.Wrap(err, "failed to update foreign table")
+			}
+
+			queries.Assign(&rel.StoreID, o.ID)
 		}
 	}
 
-	for _, rel := range related {
-		query := "insert into \"categorizations\" (\"store_id\", \"category_id\") values ($1, $2)"
-		values := []interface{}{o.ID, rel.ID}
-
-		if boil.IsDebug(ctx) {
-			writer := boil.DebugWriterFrom(ctx)
-			fmt.Fprintln(writer, query)
-			fmt.Fprintln(writer, values)
-		}
-		_, err = exec.ExecContext(ctx, query, values...)
-		if err != nil {
-			return errors.Wrap(err, "failed to insert into join table")
-		}
-	}
 	if o.R == nil {
 		o.R = &storeR{
-			Categories: related,
+			Categorizations: related,
 		}
 	} else {
-		o.R.Categories = append(o.R.Categories, related...)
+		o.R.Categorizations = append(o.R.Categorizations, related...)
 	}
 
 	for _, rel := range related {
 		if rel.R == nil {
-			rel.R = &categoryR{
-				Stores: StoreSlice{o},
+			rel.R = &categorizationR{
+				Store: o,
 			}
 		} else {
-			rel.R.Stores = append(rel.R.Stores, o)
+			rel.R.Store = o
 		}
 	}
 	return nil
 }
 
-// SetCategories removes all previously related items of the
+// SetCategorizations removes all previously related items of the
 // store replacing them completely with the passed
 // in related items, optionally inserting them as new records.
-// Sets o.R.Stores's Categories accordingly.
-// Replaces o.R.Categories with related.
-// Sets related.R.Stores's Categories accordingly.
-func (o *Store) SetCategories(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*Category) error {
-	query := "delete from \"categorizations\" where \"store_id\" = $1"
+// Sets o.R.Store's Categorizations accordingly.
+// Replaces o.R.Categorizations with related.
+// Sets related.R.Store's Categorizations accordingly.
+func (o *Store) SetCategorizations(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*Categorization) error {
+	query := "update \"categorizations\" set \"store_id\" = null where \"store_id\" = $1"
 	values := []interface{}{o.ID}
 	if boil.IsDebug(ctx) {
 		writer := boil.DebugWriterFrom(ctx)
@@ -1183,82 +1015,59 @@ func (o *Store) SetCategories(ctx context.Context, exec boil.ContextExecutor, in
 		return errors.Wrap(err, "failed to remove relationships before set")
 	}
 
-	removeCategoriesFromStoresSlice(o, related)
 	if o.R != nil {
-		o.R.Categories = nil
+		for _, rel := range o.R.Categorizations {
+			queries.SetScanner(&rel.StoreID, nil)
+			if rel.R == nil {
+				continue
+			}
+
+			rel.R.Store = nil
+		}
+		o.R.Categorizations = nil
 	}
 
-	return o.AddCategories(ctx, exec, insert, related...)
+	return o.AddCategorizations(ctx, exec, insert, related...)
 }
 
-// RemoveCategories relationships from objects passed in.
-// Removes related items from R.Categories (uses pointer comparison, removal does not keep order)
-// Sets related.R.Stores.
-func (o *Store) RemoveCategories(ctx context.Context, exec boil.ContextExecutor, related ...*Category) error {
+// RemoveCategorizations relationships from objects passed in.
+// Removes related items from R.Categorizations (uses pointer comparison, removal does not keep order)
+// Sets related.R.Store.
+func (o *Store) RemoveCategorizations(ctx context.Context, exec boil.ContextExecutor, related ...*Categorization) error {
 	if len(related) == 0 {
 		return nil
 	}
 
 	var err error
-	query := fmt.Sprintf(
-		"delete from \"categorizations\" where \"store_id\" = $1 and \"category_id\" in (%s)",
-		strmangle.Placeholders(dialect.UseIndexPlaceholders, len(related), 2, 1),
-	)
-	values := []interface{}{o.ID}
 	for _, rel := range related {
-		values = append(values, rel.ID)
+		queries.SetScanner(&rel.StoreID, nil)
+		if rel.R != nil {
+			rel.R.Store = nil
+		}
+		if _, err = rel.Update(ctx, exec, boil.Whitelist("store_id")); err != nil {
+			return err
+		}
 	}
-
-	if boil.IsDebug(ctx) {
-		writer := boil.DebugWriterFrom(ctx)
-		fmt.Fprintln(writer, query)
-		fmt.Fprintln(writer, values)
-	}
-	_, err = exec.ExecContext(ctx, query, values...)
-	if err != nil {
-		return errors.Wrap(err, "failed to remove relationships before set")
-	}
-	removeCategoriesFromStoresSlice(o, related)
 	if o.R == nil {
 		return nil
 	}
 
 	for _, rel := range related {
-		for i, ri := range o.R.Categories {
+		for i, ri := range o.R.Categorizations {
 			if rel != ri {
 				continue
 			}
 
-			ln := len(o.R.Categories)
+			ln := len(o.R.Categorizations)
 			if ln > 1 && i < ln-1 {
-				o.R.Categories[i] = o.R.Categories[ln-1]
+				o.R.Categorizations[i] = o.R.Categorizations[ln-1]
 			}
-			o.R.Categories = o.R.Categories[:ln-1]
+			o.R.Categorizations = o.R.Categorizations[:ln-1]
 			break
 		}
 	}
 
 	return nil
-}
-
-func removeCategoriesFromStoresSlice(o *Store, related []*Category) {
-	for _, rel := range related {
-		if rel.R == nil {
-			continue
-		}
-		for i, ri := range rel.R.Stores {
-			if o.ID != ri.ID {
-				continue
-			}
-
-			ln := len(rel.R.Stores)
-			if ln > 1 && i < ln-1 {
-				rel.R.Stores[i] = rel.R.Stores[ln-1]
-			}
-			rel.R.Stores = rel.R.Stores[:ln-1]
-			break
-		}
-	}
 }
 
 // AddClips adds the given related objects to the existing relationships
@@ -1386,151 +1195,6 @@ func (o *Store) RemoveClips(ctx context.Context, exec boil.ContextExecutor, rela
 	}
 
 	return nil
-}
-
-// AddUsers adds the given related objects to the existing relationships
-// of the store, optionally inserting them as new records.
-// Appends related to o.R.Users.
-// Sets related.R.Stores appropriately.
-func (o *Store) AddUsers(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*User) error {
-	var err error
-	for _, rel := range related {
-		if insert {
-			if err = rel.Insert(ctx, exec, boil.Infer()); err != nil {
-				return errors.Wrap(err, "failed to insert into foreign table")
-			}
-		}
-	}
-
-	for _, rel := range related {
-		query := "insert into \"visits\" (\"store_id\", \"user_id\") values ($1, $2)"
-		values := []interface{}{o.ID, rel.ID}
-
-		if boil.IsDebug(ctx) {
-			writer := boil.DebugWriterFrom(ctx)
-			fmt.Fprintln(writer, query)
-			fmt.Fprintln(writer, values)
-		}
-		_, err = exec.ExecContext(ctx, query, values...)
-		if err != nil {
-			return errors.Wrap(err, "failed to insert into join table")
-		}
-	}
-	if o.R == nil {
-		o.R = &storeR{
-			Users: related,
-		}
-	} else {
-		o.R.Users = append(o.R.Users, related...)
-	}
-
-	for _, rel := range related {
-		if rel.R == nil {
-			rel.R = &userR{
-				Stores: StoreSlice{o},
-			}
-		} else {
-			rel.R.Stores = append(rel.R.Stores, o)
-		}
-	}
-	return nil
-}
-
-// SetUsers removes all previously related items of the
-// store replacing them completely with the passed
-// in related items, optionally inserting them as new records.
-// Sets o.R.Stores's Users accordingly.
-// Replaces o.R.Users with related.
-// Sets related.R.Stores's Users accordingly.
-func (o *Store) SetUsers(ctx context.Context, exec boil.ContextExecutor, insert bool, related ...*User) error {
-	query := "delete from \"visits\" where \"store_id\" = $1"
-	values := []interface{}{o.ID}
-	if boil.IsDebug(ctx) {
-		writer := boil.DebugWriterFrom(ctx)
-		fmt.Fprintln(writer, query)
-		fmt.Fprintln(writer, values)
-	}
-	_, err := exec.ExecContext(ctx, query, values...)
-	if err != nil {
-		return errors.Wrap(err, "failed to remove relationships before set")
-	}
-
-	removeUsersFromStoresSlice(o, related)
-	if o.R != nil {
-		o.R.Users = nil
-	}
-
-	return o.AddUsers(ctx, exec, insert, related...)
-}
-
-// RemoveUsers relationships from objects passed in.
-// Removes related items from R.Users (uses pointer comparison, removal does not keep order)
-// Sets related.R.Stores.
-func (o *Store) RemoveUsers(ctx context.Context, exec boil.ContextExecutor, related ...*User) error {
-	if len(related) == 0 {
-		return nil
-	}
-
-	var err error
-	query := fmt.Sprintf(
-		"delete from \"visits\" where \"store_id\" = $1 and \"user_id\" in (%s)",
-		strmangle.Placeholders(dialect.UseIndexPlaceholders, len(related), 2, 1),
-	)
-	values := []interface{}{o.ID}
-	for _, rel := range related {
-		values = append(values, rel.ID)
-	}
-
-	if boil.IsDebug(ctx) {
-		writer := boil.DebugWriterFrom(ctx)
-		fmt.Fprintln(writer, query)
-		fmt.Fprintln(writer, values)
-	}
-	_, err = exec.ExecContext(ctx, query, values...)
-	if err != nil {
-		return errors.Wrap(err, "failed to remove relationships before set")
-	}
-	removeUsersFromStoresSlice(o, related)
-	if o.R == nil {
-		return nil
-	}
-
-	for _, rel := range related {
-		for i, ri := range o.R.Users {
-			if rel != ri {
-				continue
-			}
-
-			ln := len(o.R.Users)
-			if ln > 1 && i < ln-1 {
-				o.R.Users[i] = o.R.Users[ln-1]
-			}
-			o.R.Users = o.R.Users[:ln-1]
-			break
-		}
-	}
-
-	return nil
-}
-
-func removeUsersFromStoresSlice(o *Store, related []*User) {
-	for _, rel := range related {
-		if rel.R == nil {
-			continue
-		}
-		for i, ri := range rel.R.Stores {
-			if o.ID != ri.ID {
-				continue
-			}
-
-			ln := len(rel.R.Stores)
-			if ln > 1 && i < ln-1 {
-				rel.R.Stores[i] = rel.R.Stores[ln-1]
-			}
-			rel.R.Stores = rel.R.Stores[:ln-1]
-			break
-		}
-	}
 }
 
 // Stores retrieves all the records using an executor.

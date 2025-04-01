@@ -13,12 +13,9 @@ import (
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 	"github.com/volatiletech/sqlboiler/v4/types"
-	"gorm.io/gorm"
 )
 
 type Customer struct {
-	gorm.Model
-
 	Name              string `boil:"name" json:"name"`
 	Email             string `boil:"email" json:"email"`
 	Gender            string `boil:"gender" json:"gender"`
@@ -27,7 +24,26 @@ type Customer struct {
 	Store             *Store `boil:"store" json:"store,omitempty"`
 }
 
-func CreateCustomerStoreCategorization(ctx context.Context, tx *sql.Tx, request *Customer) (*Customer, error) {
+func ReadCustomerStoreCategorization(ctx context.Context, db *sql.DB, request Customer) (*models.Customer, error) {
+	customer, err := models.Customers(
+		Active,
+		qm.Where("email = ?", request.Email),
+		qm.Load(models.CustomerRels.Stores, Active),
+		qm.Load(
+			qm.Rels(
+				models.CustomerRels.Stores,
+				models.StoreRels.Categorizations,
+				models.CategorizationRels.Category,
+			), Active),
+	).One(ctx, db)
+	log.Print("customer", customer)
+	if err != nil {
+		return nil, err
+	}
+	return customer, nil
+}
+
+func CreateCustomerStoreCategorization(ctx context.Context, tx *sql.Tx, request *CreateCustomer) (*CreateCustomer, error) {
 	// Insert customer table
 	customer := models.Customer{
 		Name:              null.NewString(request.Name, true),
@@ -57,7 +73,8 @@ func CreateCustomerStoreCategorization(ctx context.Context, tx *sql.Tx, request 
 	}
 
 	// Insert categorization table
-	for _, requestCategory := range *request.Store.Categories {
+	for _, requestCategory := range request.Store.Categories {
+		var categorization models.Categorization
 		category, err := models.Categories(
 			Active,
 			qm.Where("name = ?", requestCategory.Name),
@@ -65,8 +82,9 @@ func CreateCustomerStoreCategorization(ctx context.Context, tx *sql.Tx, request 
 		if err != nil {
 			return nil, err
 		}
-		log.Print(category)
-		err = store.AddCategories(ctx, tx, false, category)
+		categorization.CategoryID = null.Int64From(category.ID)
+		categorization.StoreID = null.Int64From(store.ID)
+		err = store.AddCategorizations(ctx, tx, false, &categorization)
 		if err != nil {
 			return nil, err
 		}
@@ -81,6 +99,7 @@ func DeleteCustomerStoreCategorization(ctx context.Context, tx *sql.Tx, request 
 		Active,
 		qm.Where("email = ?", request.Email),
 		qm.Load(models.CustomerRels.Stores, Active),
+		qm.Load(qm.Rels(models.CustomerRels.Stores, models.StoreRels.Categorizations), Active),
 	).One(ctx, tx)
 	if err != nil {
 		return err
@@ -106,18 +125,19 @@ func DeleteCustomerStoreCategorization(ctx context.Context, tx *sql.Tx, request 
 	}
 
 	// delete categorization table
-	categories := store.R.Categories
-	if categories != nil {
-		for _, category := range store.R.Categories {
-			err = store.RemoveCategories(ctx, tx, category)
+	categorizations := store.R.Categorizations
+	if categorizations != nil {
+		for _, categorization := range categorizations {
+			err = store.RemoveCategorizations(ctx, tx, categorization)
 			if err != nil {
 				return err
 			}
 		}
 	} else {
-		makeResult(store, response.Store)
+		makeResult(customer, response)
+		return nil
 	}
-	log.Print("categories", categories)
+	log.Print("categories", categorizations)
 
 	makeResult(customer, response)
 

@@ -16,8 +16,10 @@ func Migrate(db *gorm.DB) {
 		&table.Store{},
 		&table.Clip{},
 		&table.User{},
+		&table.Visit{},
 		&table.Location{},
 		&table.Category{},
+		&table.Categorization{},
 	)
 }
 

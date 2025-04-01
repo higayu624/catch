@@ -8,7 +8,7 @@ type User struct {
 	Age               string     `boil:"age" json:"age"`
 	GoogleAccessToken string     `boil:"google_access_token" json:"google_access_token"`
 	Locations         []Location `boil:"locations" json:"locations"`
-	Visits            []Visit    `boil:"visits" json:"visits"`
+	Stores            []Store    `boil:"stores" json:"stores"`
 }
 
 type Users []User

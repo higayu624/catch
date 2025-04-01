@@ -64,6 +64,7 @@ func initRouter(dbHandler *sql.DB) *gin.Engine {
 	customerGroup := router.Group(endpointGroups("customer"))
 	{
 		route := ""
+		customerGroup.GET(route, controller.GetCustomer(dbHandler))
 		customerGroup.POST(route, controller.PostCustomer(dbHandler))
 		customerGroup.DELETE(route, controller.DeleteCustomer(dbHandler))
 		// route = "/force"

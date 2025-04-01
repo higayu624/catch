@@ -19,7 +19,7 @@ type postCustomerResponse struct {
 	Store             *model.Store `json:"store,omitempty"`
 }
 
-func makeResult(responseModel model.Customer, result *model.Customer) error {
+func makeResult(responseModel interface{}, result interface{}) error {
 	responseModelJson, err := json.Marshal(responseModel)
 	if err != nil {
 		return err
